@@ -1,15 +1,44 @@
 import React, { useState } from 'react';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import { makeStyles, createStyles } from '@material-ui/core/styles';
+
+
 import ChatGptApi from './utils/chatGptApi';
 import YoutubeApi from './utils/youtubeApi';
 
+// フックを作成
+const useStyles = makeStyles((theme) => createStyles({
+  root: {
+    display: 'flex',
+    margin: 5,
+    // flexBasis: 20
+  },
+  input: {
+    width: 400,
+  },
+  flexInput: {
+    width: '29%'
+  },
+  flexItemStartBtn: {
+    width: '12.5%'
+  },
+  youtubeUrl: {
+    marginTop: 25,
+    margin: 5,
+  }
+}));
+
 const App = () => {
+
+  const classes = useStyles();
 
   // メッセージの状態管理用
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [youtubeCommentAcquisitionFunc, setYoutubeCommentAcquisitionFunc] = useState('');
   const [youtubeCommentData, setYoutubeCommentData] = useState('');
-  const [readingCommentStartFlg, setReadingCommentStartFlg] = useState(false);
-  const [reading_comment_StopFlg, setReading_comment_StopFlg] = useState(false);
+  const [readingCommentBtnName, setreadingCommentBtnName] = useState("コメント読み取り開始");
+  const [readingCommentBtnFlg, setReadingCommentBtnFlg] = useState(false);
 
   // 回答の状態管理用
   const [answer, setAnswer] = useState('');
@@ -19,79 +48,71 @@ const App = () => {
     setYoutubeUrl(event.target.value);
   }
 
-  const reading_comment_start = async (event) => {
+  const readingCommentFunc = async (event) => {
 
-    console.log("読み取り開始")
-
-    if (readingCommentStartFlg) {
-      return;
-    }
-
-    const LiveUrl = new URL(youtubeUrl);
-    const queryParams = new URLSearchParams(LiveUrl.search);
-    const liveId = queryParams.get('v')
-
-    // youtubeビデオデータ取得
-    const liveData = await YoutubeApi.videos(liveId);
-
-    if (liveData == null) {
-      console.error("ビデオデータ取得できませんでした");
-      return;
-    }
-
-    const channelId = liveData.items[0].liveStreamingDetails.activeLiveChatId;
-    // console.log(channelId)
-
-    setYoutubeCommentAcquisitionFunc(setInterval(async () => {
-
-      const liveCommentData = await YoutubeApi.liveComment(channelId);
-
-      if(liveCommentData.status !== null) {
-        setYoutubeCommentData(liveCommentData.items);
+    if (!readingCommentBtnFlg) {
+      const LiveUrl = new URL(youtubeUrl);
+      const queryParams = new URLSearchParams(LiveUrl.search);
+      const liveId = queryParams.get('v')
+  
+      // youtubeビデオデータ取得
+      const liveData = await YoutubeApi.videos(liveId);
+  
+      if (liveData == null) {
+        console.error("ビデオデータ取得できませんでした");
+        return;
       }
-    }, 2000))
+  
+      const channelId = liveData.items[0].liveStreamingDetails.activeLiveChatId;
+      console.log(channelId)
+  
+      setYoutubeCommentAcquisitionFunc(setInterval(async () => {
+  
+        const liveCommentData = await YoutubeApi.liveComment(channelId);
+  
+        if (liveCommentData.status !== null) {
+          // let livecommentData = []
 
-    setReading_comment_StopFlg(false);
-    setReadingCommentStartFlg(true);
+          // console.log(liveCommentData)
 
-  }
+          // for (let i = 0; i < liveCommentData.items.length; i++) {
+          //   if (liveCommentData.items[i].snippet.textMessageDetails.messageText !== undefined) {
+          //     livecommentData.push(liveCommentData.items[i])
+          //   }
+          // }
+          setYoutubeCommentData(liveCommentData.items);
+        }
+      }, 2000))
 
-  const reading_comment_Stop = async () => {
+      setreadingCommentBtnName('コメント読み取り停止')
 
-    // テスト的にChatGPT API組み込んでいる
-    await ChatGptApi.completions("コード修正してください");
+      // setReading_comment_StopFlg(false);
+      setReadingCommentBtnFlg(true);
+    } else {
+      // テスト的にChatGPT API組み込んでいる
+      await ChatGptApi.completions("コード修正してください");
 
-    if(reading_comment_StopFlg) {
-      return;
+      clearInterval(youtubeCommentAcquisitionFunc)
+
+      setreadingCommentBtnName('コメント読み取り開始')
+
+      setReadingCommentBtnFlg(false);
     }
-
-    clearInterval(youtubeCommentAcquisitionFunc)
-
-    setReadingCommentStartFlg(false);
-    setReading_comment_StopFlg(true);
 
   }
 
   // チャットフォームの表示
   return (
     <div>
-      <h4>youtube Live URL</h4>
-      <form>
-        <label>
-          <textarea
-            rows='1'
-            cols='50'
-            value={youtubeUrl}
-            onChange={handleMessageChange}
-          />
-        </label>
-      </form>
-      <div>
-          <button onClick={reading_comment_start} disabled={readingCommentStartFlg}>コメント読み取り開始</button>
+      <h4 className={classes.youtubeUrl}>youtube Live URL</h4>
+      <div className={classes.root}>
+        <div className={classes.flexInput}>
+          <TextField className={classes.input} onChange={handleMessageChange} size="small" id="outlined-basic" label="Youtube URL" variant="outlined" />
         </div>
-      <div>
-          <button onClick={reading_comment_Stop} disabled={reading_comment_StopFlg}>コメント読み取り停止</button>
+        <div className={classes.flexItemStartBtn}>
+          <Button onClick={readingCommentFunc} size="medium" variant="contained">{readingCommentBtnName}</Button>
         </div>
+      </div>
       {youtubeCommentData && (
         youtubeCommentData?.map((data) => (
           <div key={data.id}>{data.snippet.textMessageDetails.messageText}</div>
