@@ -6,6 +6,9 @@ import { makeStyles, createStyles } from '@material-ui/core/styles';
 
 import ChatGptApi from './utils/chatGptApi';
 import YoutubeApi from './utils/youtubeApi';
+import voicevoxApi from './utils/voicevoxApi';
+
+console.log(new Audio())
 
 // フックを作成
 const useStyles = makeStyles((theme) => createStyles({
@@ -21,12 +24,20 @@ const useStyles = makeStyles((theme) => createStyles({
     width: '29%'
   },
   flexItemStartBtn: {
-    width: '12.5%'
+    // width: '12.5%'
+    width: '200px'
   },
   youtubeUrl: {
     marginTop: 25,
     margin: 5,
-  }
+  },
+  test: {
+    width: '600px',
+    height: '100px',
+    border: '1px solid',
+    // overflow: 'scroll',
+    overflowY: 'auto',
+}
 }));
 
 const App = () => {
@@ -40,8 +51,9 @@ const App = () => {
   const [readingCommentBtnName, setreadingCommentBtnName] = useState("コメント読み取り開始");
   const [readingCommentBtnFlg, setReadingCommentBtnFlg] = useState(false);
 
-  // 回答の状態管理用
-  const [answer, setAnswer] = useState('');
+  const [lastComent, setLastComent] = useState('');
+  const [audioDataList, setAudioDataList] = useState([]);
+  const [audiaoCount, setAudioCount] = useState(0);
 
   // メッセージの格納
   const handleMessageChange = (event) => {
@@ -67,30 +79,76 @@ const App = () => {
       console.log(channelId)
   
       setYoutubeCommentAcquisitionFunc(setInterval(async () => {
-  
+
         const liveCommentData = await YoutubeApi.liveComment(channelId);
   
         if (liveCommentData.status !== null) {
-          // let livecommentData = []
-
-          // console.log(liveCommentData)
-
-          // for (let i = 0; i < liveCommentData.items.length; i++) {
-          //   if (liveCommentData.items[i].snippet.textMessageDetails.messageText !== undefined) {
-          //     livecommentData.push(liveCommentData.items[i])
-          //   }
-          // }
           setYoutubeCommentData(liveCommentData.items);
+  
+  
+          let youubeNewComent = liveCommentData.items.slice(-1)[0].snippet.textMessageDetails.messageText;
+          // console.log(newTubeComent);
+          // setComent(newTubeComent);
+          console.log(youubeNewComent);
+          // if (coment !== '') {
+  
+          if (lastComent !== youubeNewComent) {
+            // console.log(youtubeCommentData.slice(-1)[0].snippet.textMessageDetails.messageText);
+            //ChatGtp
+            const chatGptMsg = await ChatGptApi.completions(youubeNewComent);
+  
+            //クエリ作成
+            console.log(chatGptMsg);
+  
+            const audioQuery = await voicevoxApi.audioQuery(chatGptMsg);
+            // const audioQuery = newQuery;
+            // setQueryJson(audioQuery);
+  
+            // 合成音声　クエリ作成
+            const newAudioData = await voicevoxApi.createVoice(audioQuery);
+            const audioData = newAudioData;
+
+            let audioList = audioDataList;
+
+            audioList.push(audioData)
+
+            setAudioDataList(audioList);
+  
+            // }
+          }
+          setLastComent(youubeNewComent);
         }
-      }, 2000))
+        // }
+      }, 10000))
+
+      while(audiaoCount !== audioDataList.length) {
+        let audioNum = 0;
+
+        if (audiaoCount !== 0) {
+          audioNum = audiaoCount - 1
+        }
+
+        let audio = new Audio();
+
+        const audioSourceURL = window.URL || window.webkitURL
+    
+        audio = new Audio(audioSourceURL.createObjectURL(audioDataList));
+    
+        audio.play();
+
+        while(!audio.ended) {};
+
+        setAudioCount(audioNum + 1);
+
+      }
 
       setreadingCommentBtnName('コメント読み取り停止')
 
       // setReading_comment_StopFlg(false);
       setReadingCommentBtnFlg(true);
     } else {
-      // テスト的にChatGPT API組み込んでいる
-      await ChatGptApi.completions("コード修正してください");
+      // // テスト的にChatGPT API組み込んでいる
+      // await ChatGptApi.completions("コード修正してください");
 
       clearInterval(youtubeCommentAcquisitionFunc)
 
@@ -113,17 +171,13 @@ const App = () => {
           <Button onClick={readingCommentFunc} size="medium" variant="contained">{readingCommentBtnName}</Button>
         </div>
       </div>
-      {youtubeCommentData && (
-        youtubeCommentData?.map((data) => (
-          <div key={data.id}>{data.snippet.textMessageDetails.messageText}</div>
-        ))
-      )}
-      {/* {answer && (
-        <div>
-          <h2>回答:</h2>
-          <p>{answer}</p>
-        </div>
-      )} */}
+      {/* <div className={classes.test}>
+        {youtubeCommentData && (
+          youtubeCommentData?.map((data) => (
+            <div key={data.id}>{data.snippet.textMessageDetails.messageText}</div>
+          ))
+        )}
+      </div> */}
     </div>
   );
 }

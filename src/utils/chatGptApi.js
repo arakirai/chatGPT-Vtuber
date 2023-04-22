@@ -17,7 +17,7 @@ const instance = axios.create({
 class ChatGptApi {
 
     // ChatGPTからメッセージを返答API
-    async completions(msg) {
+    async completions(coment) {
 
         // API リクエスト
         let response = null;
@@ -29,18 +29,20 @@ class ChatGptApi {
                 messages: [
                     {
                         'role': 'user',
-                        'content': msg,
+                        'content': coment,
                     },
                 ],
             })
 
-            response = res.data;
 
-        } catch(e) {
+            return res.data.choices[0].message.content;
+
+
+        } catch (e) {
             console.error(e)
         }
-        
-        return response;
+
+        // return response;
     }
 
 }
